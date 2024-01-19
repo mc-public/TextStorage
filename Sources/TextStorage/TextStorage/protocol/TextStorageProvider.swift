@@ -2,17 +2,13 @@
 //  TextStorageProvider.swift
 //
 //
-//  Created by 孟超 on 2024/1/6.
+//  Created by mc-public on 2024/1/6.
 //
-
-#if os(iOS)
-
-import Swift
 
 /**
  在 `TextEditor` 框架中提供文本存储的类所应当遵循的协议
  */
-@available(iOS 13.0, *)
+@available(iOS 13.0, macOS 12.0, *)
 protocol TextStorageProvider: AnyObject {
     /**
      表示视觉上的文本行的关联类型
@@ -27,11 +23,15 @@ protocol TextStorageProvider: AnyObject {
      */
     associatedtype TextBuffer
     /**
-     在当前协议中表示某个 **字符** 对应的文本位置的关联类型
+     在当前协议中表示某个 **编码单元** 对应的文本位置的关联类型
      
-     > 请将其理解为 `Unicode` 编码单元，为了不能理解为用户可见的直观字符。
+     > 请将其理解为 `Unicode` 编码单元，不能理解为用户可见的直观字符。
      */
     associatedtype TextPosition
+    /**
+     在当前协议中表示某个 **编码单元** 的关联类型
+     */
+    associatedtype TextCodeUnit
     /**
      在当前协议中表示文本编码的关联类型
      */
@@ -77,12 +77,13 @@ protocol TextStorageProvider: AnyObject {
      实现本协议的类应当实现以下的两个方法，以在指定的指标位置对应的字符 **之前** 和 **之后** 插入文本。
      
      - Parameter text: 想要插入到指定编码位置的文本。
-     - Parameter position: 插入文本时的锚点字符。插入后的文本的第一个字符将位于此位置所表示的字符处，原先在此位置及其后面的所有字符均会被后移至被插入的字符串的后边。
+     - Parameter position: 插入文本时的锚点字符。插入后的文本的第一个字符将位于此位置所表示的字符或者编码单元处，原先在此位置及其后面的所有字符或者编码单元均会被后移至被插入的字符串的后边。
+     - Parameter respectComposedCharacter: 是否按照组合字符的方式进行插入。值为 `true` 时将以组合字符为单位处理插入操作，值为 `false` 时将以编码单元为单位处理插入操作。
      - Returns: 返回插入的字符串的起始编码单元的实际位置以及被后移的文本的起始编码单元的实际位置所组成的元组。
      
      > 实现此方法时应在范围越界时抛出相应的错误，除此之外的错误应当触发断言。
      */
-    func insert(text: TextBuffer, at position: TextPosition) throws -> (TextPosition, TextPosition)
+    func insert(text: TextBuffer, at position: TextPosition, respectComposedCharacter: Bool) throws -> (insertedFirstUnitIndex: TextPosition, movedFirstUnitIndex: TextPosition)
     
     /**
      删除指定范围的文本
@@ -97,15 +98,14 @@ protocol TextStorageProvider: AnyObject {
     func delete(range: TextRange) throws -> TextRange
     
     /**
-     获取指定编码单元处所对应的字符以及该字符对应的编码单元的索引范围
+     获取指定索引处的编码单元
      
-     - Parameter position: 想要获取字符以及其所对应的编码单元的索引范围的文本
-     - Returns: 返回字符及其对应的编码单元的索引范围
+     - Parameter position: 想要获取对应的编码单元的索引
+     - Returns: 返回索引所对应的编码单元
      
      > 实现此方法时应在范围越界时抛出相应的错误，除此之外的错误应当触发断言。
      */
-    func character(at position: TextPosition) throws -> (Character, TextRange)
-    
+    func codeUnit(at position: TextPosition) throws -> TextCodeUnit
     
     //MARK: - 和文本行交互的 API
     
@@ -118,7 +118,7 @@ protocol TextStorageProvider: AnyObject {
      
      > 实现此方法时应在文本位置非法或者越界时抛出相应的错误，除此之外的错误应当触发断言。
      */
-    func lineContent(at position: TextPosition) throws -> TextLine
+    func lineContent(unitIndex position: TextPosition) throws -> TextLine
     
     
     /**
@@ -145,4 +145,4 @@ protocol TextStorageProvider: AnyObject {
 }
 
 
-#endif
+
